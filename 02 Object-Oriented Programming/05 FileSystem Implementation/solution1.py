@@ -1,93 +1,90 @@
+# Copyright © 2022 AlgoExpert LLC. All rights reserved.
+
 class FileSystem:
     def __init__(self):
         self.root = Directory("/")
-        
-    def create_directory(self, path):
-        if FileSystem._validate_path(path):
-            folders = path.split("/")
-            folders.pop(0)
-            roots =[self.root]
-                    
-            for index, folder in enumerate(folders):
-                    if not folder in roots[index].children :
-                        new_folder = Directory(folder)
-                        roots[index].add_node(new_folder)
-                        roots.append(new_folder)
-                    else:
-                        roots.append(roots[index].children[folder]) 
-                        
-    def create_file(self, path, contents):
-        if FileSystem._validate_path(path):
-            folders = path.split("/")
-            folders.pop(0)
-            roots =[self.root]
-            file_name = folders[-1]
-            folders.pop(-1)
-            if file_name in roots[0].children and len(folders) == 1:
-                raise ValueError('')
-            
-            for index, folder in enumerate(folders):
-                    if  folder in roots[index].children :
-                        roots.append(roots[index].children[folder]) 
-                    else:
-                        raise ValueError('')
-                        
-        
-            file =  File(file_name)
-            file.write_contents(contents)
-            roots[-1].add_node(file)
 
+    def create_directory(self, path):
+        FileSystem._validate_path(path)
+
+        path_node_names = path[1:].split("/")
+        middle_node_names = path_node_names[:-1]
+        new_directory_name = path_node_names[-1]
+
+        before_last_node = self._find_bottom_node(middle_node_names)
+        
+        if not isinstance(before_last_node, Directory):
+            raise ValueError(f"{before_last_node.name} isn't a directory.")
+        
+        new_directory = Directory(new_directory_name)
+
+        before_last_node.add_node(new_directory)
+
+    def create_file(self, path, contents):
+        FileSystem._validate_path(path)
+
+        path_node_names = path[1:].split("/")
+        middle_node_names = path_node_names[:-1]
+        new_file_name = path_node_names[-1]
+
+        before_last_node = self._find_bottom_node(middle_node_names)
+        
+        if not isinstance(before_last_node, Directory):
+            raise ValueError(f"{before_last_node.name} isn't a directory.")
+        
+        new_file = File(new_file_name)
+        new_file.write_contents(contents)
+
+        before_last_node.add_node(new_file)
 
     def read_file(self, path):
-        if FileSystem._validate_path(path):
-            folders = path.split("/")
-            folders.pop(0)
-            roots =[self.root]
-            file_name = folders[-1]
-            folders.pop(-1)
-            
-            if file_name in roots[0].children and len(folders) == 1:
-                file_obj = roots[0].children[file_name]
-                return file_obj.contents
-            
-            for index, folder in enumerate(folders):
-                    if  folder in roots[index].children :
-                        roots.append(roots[index].children[folder]) 
-                    else:
-                        raise ValueError('')
-                        
-            if file_name in roots[-1].children:
-                file_obj = roots[-1].children[file_name]
-                return file_obj.contents
-            else:
-                raise ValueError('')
-         
-         
-    def delete_directory_or_file(self, path):
-        if FileSystem._validate_path(path):
-            folders = path.split("/")
-            folders.pop(0)
-            roots =[self.root]
-            folder_to_delete =   folders[-1]
-            for index, folder in enumerate(folders):
-                    if  folder in roots[index].children :                            
-                        del_folder = roots[index].children[folder]
-                        if folder == folder_to_delete:
-                            roots[index].delete_node(folder)
-                        roots.append(del_folder)
-                    else:
-                        raise ValueError('')
-        
-    def size(self):
-        sum = 0
-        folders =  self.root.children
-        print(folders)
-        roots =[self.root]
-        for index, child in enumerate(folders):
-            if isinstance(folders[child], File):
-                sum += len(folders[child].contents)
-        return sum
+        FileSystem._validate_path(path)
 
+        path_node_names = path[1:].split("/")
+        middle_node_names = path_node_names[:-1]
+        file_name = path_node_names[-1]
+
+        before_last_node = self._find_bottom_node(middle_node_names)
+        
+        if not isinstance(before_last_node, Directory):
+            raise ValueError(f"{before_last_node.name} isn't a directory.")
+
+        if file_name not in before_last_node.children:
+            raise ValueError(f"File not found: {file_name}.")
+            
+        return before_last_node.children[file_name].contents
+
+    def delete_directory_or_file(self, path):
+        FileSystem._validate_path(path)
+
+        path_node_names = path[1:].split("/")
+        middle_node_names = path_node_names[:-1]
+        node_to_delete_name = path_node_names[-1]
+
+        before_last_node = self._find_bottom_node(middle_node_names)
+        
+        if not isinstance(before_last_node, Directory):
+            raise ValueError(f"{before_last_node.name} isn't a directory.")
+
+        if node_to_delete_name not in before_last_node.children:
+            raise ValueError(f"Node not found: {node_to_delete_name}.")
+            
+        before_last_node.delete_node(node_to_delete_name)
+
+    def size(self):
+        size = 0
+        nodes = [self.root]
+        while len(nodes) > 0:
+            current_node = nodes.pop()
+            if isinstance(current_node, Directory):
+                children = list(current_node.children.values())
+                nodes.extend(children)
+                continue
+
+            if isinstance(current_node, File):
+                size += len(current_node)
+
+        return size
 
     def __str__(self):
         return f"*** FileSystem ***\n" + self.root.__str__() + "\n***"
@@ -96,12 +93,20 @@ class FileSystem:
     def _validate_path(path):
         if not path.startswith("/"):
             raise ValueError("Path should start with `/`.")
-        return True
 
 
     def _find_bottom_node(self, node_names):
-        # Write your code here.
-        pass
+        current_node = self.root
+        for node_name in node_names:
+            if not isinstance(current_node, Directory):
+                raise ValueError(f"{current_node.name} isn't a directory.")
+
+            if node_name not in current_node.children:
+                raise ValueError(f"Node not found: {node_name}.")
+
+            current_node = current_node.children[node_name]
+            
+        return current_node
 
 
 class Node:
@@ -113,7 +118,6 @@ class Node:
 
 
 class Directory(Node):
-    
     def __init__(self, name):
         super().__init__(name)
         self.children = {}
@@ -136,8 +140,8 @@ class Directory(Node):
         string += "\n" + children_combined_string.rstrip()
         return string
 
+
 class File(Node):
-    
     def __init__(self, name):
         super().__init__(name)
         self.contents = ""
@@ -150,52 +154,10 @@ class File(Node):
 
     def __str__(self):
         return super().__str__() + f" | {len(self)} characters"
-    
+
+
 def indent(string, number_of_spaces):
     spaces = " " * number_of_spaces
     lines = string.split("\n")
     indented_lines = [spaces + line for line in lines]
     return "\n".join(indented_lines)
-
-
-
-
-fs = FileSystem()
-fs.create_directory("/dir1")
-fs.create_directory("/dir2")
-fs.create_directory("/dir1/dir3")
-fs.create_file("/dir1/dir3/tim.txt", "Tim is great2!")
-fs.create_file("/tim.txt", "Tim is great!")
-#fs.delete_directory_or_file("/tim.txt")
-print(fs.size())
-#with self.assertRaises(ValueError):
-#fs.create_directory("/dir3/dir4")
-#print(fs)
-
-# fs = FileSystem()
-
-# #with self.assertRaises(ValueError):
-# #fs.create_file("/dir1/simon.txt", "ProgrammingExpert is fun!")
-# fs.read_file("/tim.txt")
-# fs = FileSystem()
-# fs.create_file("/tim.txt", "12345")
-# fs.size()
-# fs.create_file("/alex.txt", "67890")
-# fs.size()
-# fs = FileSystem()
-# fs.create_directory("/dir1")
-# fs.create_directory("/dir1/dir2")
-# fs.create_directory("/dir1/dir2/dir3")
-# fs.create_file("/dir1/dir2/file1.txt", "1")
-# fs.create_file("/dir1/dir2/dir3/file2.txt", "1")
-# fs = FileSystem()
-# #with self.assertRaises(ValueError):
-# fs.delete_directory_or_file("/dir1")
-# fs.create_directory("/dir1")
-# fs.create_file("/dir1/simon.txt", "ProgrammingExpert is fun!")
-# #self.assertEqual(25, fs.size())
-# #with self.assertRaises(ValueError):
-# fs.delete_directory_or_file("/dir2")
-# fs.delete_directory_or_file("/dir1")
-# fs.size()
-
